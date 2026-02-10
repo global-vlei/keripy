@@ -102,7 +102,7 @@ class ConfirmDoer(doing.DoDoer):
         couple = seqner.qb64b + saider.qb64b
         self.hby.db.setAes(dgkey, couple)
 
-    def confirmDo(self, tymth, tock=0.0, **kwa):
+    def confirmDo(self, tymth, tock=0.0):
         """
         Parameters:
             tymth (function): injected function wrapper closure returned by .tymen() of
@@ -183,8 +183,7 @@ class ConfirmDoer(doing.DoDoer):
 
                         print(f"Delegate {eserder.pre} {typ} event committed.")
 
-                        self._addAuthorizerSeal(pre, edig, anchorSn=serder.sn,
-                                                anchorSaid=serder.said)
+                        self._addAuthorizerSeal(pre, edig, anchorSn=serder.sn, anchorSaid=serder.said)
                         self.hby.kvy.processEscrowDelegables()  # removes DIP/DRT from delegables after adding it to kevers
                         self.remove(self.toRemove)
                         return True
@@ -242,8 +241,7 @@ class ConfirmDoer(doing.DoDoer):
 
                             print(f"Delegate {eserder.pre} {typ} event committed.")
 
-                        self._addAuthorizerSeal(pre, edig, anchorSn=hab.kever.sn,
-                                                anchorSaid=hab.kever.serder.said)
+                        self._addAuthorizerSeal(pre, edig, anchorSn=hab.kever.sn, anchorSaid=hab.kever.serder.said)
                         self.hby.kvy.processEscrowDelegables()  # removes DIP/DRT from delegables after adding it to kevers
                         self.remove(self.toRemove)
                         return True
