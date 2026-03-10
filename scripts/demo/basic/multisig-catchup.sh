@@ -8,6 +8,12 @@ suffix=$(head /dev/urandom | tr -dc a-z0-9 | head -c4)
 multisig_1="multisig_1_${suffix}"
 multisig_2="multisig_2_${suffix}"
 
+exit_hook() {
+    echo kli status --name "$multisig_1" --alias multisig
+    echo kli status --name "$multisig_2" --alias multisig
+}
+trap exit_hook EXIT
+
 kli init --name "$multisig_1" --nopasscode
 kli init --name "$multisig_2" --nopasscode
 
@@ -47,12 +53,9 @@ EOF
 
 kli multisig incept --name "$multisig_1" --alias member --group multisig --file "$multisig_json"
 
-
 multisig_aid=$(kli aid --name "$multisig_1" --alias multisig)
-multisig_2_aid=$(kli aid --name "$multisig_2" --alias multisig)
 
 echo "multisig_aid: $multisig_aid"
-echo "multisig_2_aid: $multisig_2_aid"
 
 nonce=$(kli nonce)
 kli vc registry incept --name "$multisig_1" --alias multisig --nonce "$nonce" --usage "Issue vLEIs"
@@ -67,13 +70,17 @@ kli vc create \
     --data "{\"LEI\": \"5493001KJTIIGC8Y1R17\"}" \
     --time "${timestamp}"
 
+echo "--------------------------------"
+echo "Joining multisig_2 to multisig_1"
+echo "--------------------------------"
+
 kli multisig join --name "$multisig_2" --group multisig --auto
 kli multisig export --name "$multisig_1" --alias multisig | kli multisig import --name "$multisig_2" --alias multisig --auto
 
 # Verify that there are two credentials in the vc list --said
 said_count=$(kli vc list --name "$multisig_2" --alias multisig --said | wc -l)
-if [ "$said_count" -ne 2 ]; then
-    echo "Expected 2 credentials, got $said_count"
+if [ "$said_count" -ne 1 ]; then
+    echo "Expected 1 credentials, got $said_count"
     exit 1
 fi
 

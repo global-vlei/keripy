@@ -43,25 +43,20 @@ def rename(tymth, tock=0.0, **opts):
     bran = args.bran
     newAlias = args.new
 
-    try:
-        with existing.existingHab(name=name, alias=alias, base=base, bran=bran) as (hby, hab):
-            if hby.habByName(newAlias) is not None:
-                print(f"{newAlias} is already in use")
+    with existing.existingHby(name=name, base=base, bran=bran) as (hby):
+        # if hby.habByName(newAlias) is not None:
+        #     print(f"{newAlias} is already in use")
+        #     return -1
 
-            if (pre := hab.db.names.get(keys=("", alias))) is not None:
+        hab = hby.habByPre(alias) or hby.habByName(alias)
+        if hab is None:
+            print(f"No AID with name {alias} found")
+            return -1
 
-                habord = hab.db.habs.get(keys=pre)
-                habord.name = newAlias
-                hab.db.habs.pin(keys=habord.hid,
-                                val=habord)
-                hab.db.names.pin(keys=("", newAlias), val=pre)
-                hab.db.names.rem(keys=("", alias))
-
-                print(f"Hab {alias} renamed to {newAlias}")
-            else:
-                raise ConfigurationError(f"No AID with name {alias} found")
-
-
-    except ConfigurationError as e:
-        print(f"identifier prefix for {name} does not exist, incept must be run first", )
-        return -1
+        habord = hab.db.habs.get(keys=hab.pre)
+        habord.name = newAlias
+        hab.db.habs.pin(keys=habord.hid,
+                        val=habord)
+        hab.db.names.pin(keys=("", newAlias), val=hab.pre)
+        hab.db.names.rem(keys=("", alias))
+        print(f"Hab {alias} renamed to {newAlias}")
