@@ -47,7 +47,6 @@ EOF
 
 kli multisig incept --name "$multisig_1" --alias member --group multisig --file "$multisig_json"
 
-kli multisig join --name "$multisig_2" --group multisig --auto
 
 multisig_aid=$(kli aid --name "$multisig_1" --alias multisig)
 multisig_2_aid=$(kli aid --name "$multisig_2" --alias multisig)
@@ -68,6 +67,7 @@ kli vc create \
     --data "{\"LEI\": \"5493001KJTIIGC8Y1R17\"}" \
     --time "${timestamp}"
 
+kli multisig join --name "$multisig_2" --group multisig --auto
 kli multisig export --name "$multisig_1" --alias multisig | kli multisig import --name "$multisig_2" --alias multisig --auto
 
 # Verify that there are two credentials in the vc list --said
@@ -76,3 +76,5 @@ if [ "$said_count" -ne 2 ]; then
     echo "Expected 2 credentials, got $said_count"
     exit 1
 fi
+
+registry_said=$(kli vc registry list --name "$multisig_2" --alias multisig --said)
