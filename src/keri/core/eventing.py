@@ -2743,10 +2743,15 @@ class Kever:
         # Controller accepts without waiting for witnessor nor for the delegation
         # seal to be anchored in delegator's KEL.
         # Witness accepts without waiting for delegation seal to be anchored in
-        # delegator's KEL.  Witness cue in Kevery will then generate receipt
-        if (self.locallyOwned() or self.locallyMembered() or
-                self.locallyWitnessed(wits=wits)):
-            return (None, None) # not validated so delseqner delsaider must be None
+        # delegator's KEL.  Witness cue in Kevery will then generate receipt.
+        # When the controller sends the event with the seal after approval, pass
+        # the seal through so the witness can store it (setAes) for replay/display.
+        if self.locallyOwned() or self.locallyMembered():
+            return (None, None)  # not validated so delseqner delsaider must be None
+        if self.locallyWitnessed(wits=wits) and (delseqner is None or delsaider is None):
+            return (None, None)  # witness accepting without seal; repair may run in logEvent
+        if self.locallyWitnessed(wits=wits):
+            return (delseqner, delsaider)  # witness with seal in message: pass through for setAes
 
         if self.kevers is None or delpre not in self.kevers:  # missing delegator KEL
             # ToDo XXXX cue a trigger to get the KEL of the delegator. This may
@@ -3140,21 +3145,25 @@ class Kever:
         self.db.putEvt(dgkey, serder.raw)  # idempotent (maybe already excrowed)
         # update event source
 
-        # delegation for authorized delegated or issued event
-        # when seqner and saider are provided they are only assured to be valid
-        # kever for event if kel is delegated and not locallyOwned
-        # and not locallyWitnessed as the validateDelegation is short circuited
-        # for non delegated kels, local controllers, and local witnesses.
-        # These checks prevent ddos via malicious source seal attachments.
-        # MUST NOT setAes if not delegated or locallyOwned or locallyWitnessed
-        if (self.delpre and not serder.ilk == Ilks.ixn and not self.locallyOwned()
-            and not self.locallyWitnessed(wits=wits) and seqner and saider):
+        # Authorizer (delegator/issuer) seal: from message when present, else witness
+        # eager lookup. Only store when not locally owned (avoid trusting malicious seal).
+        couple = None
+        if seqner and saider:
             couple = seqner.qb64b + saider.qb64b
-            self.db.setAes(dgkey, couple)  # authorizer (delegator/issuer) event seal
-
-        #if seqner and saider:
-            #couple = seqner.qb64b + saider.qb64b
-            #self.db.setAes(dgkey, couple)  # authorizer (delegator/issuer) event seal
+        elif (self.delpre and self.locallyWitnessed(wits=wits) and not self.db.getAes(dgkey)):
+            seal = SealEvent(i=serder.pre, s=serder.snh, d=serder.said)
+            for evt in self.db.getEvtLastPreIter(pre=self.delpre, sn=0):
+                srdr = serdering.SerderKERI(raw=bytes(evt))
+                for eseal in (srdr.seals or []):
+                    if tuple(eseal) == SealEvent._fields:
+                        eseal = SealEvent(**eseal)
+                        if seal == eseal:
+                            couple = srdr.sner.huge.encode() + srdr.saidb
+                            break
+                if couple is not None:
+                    break
+        if (couple and self.delpre and serder.ilk != Ilks.ixn and not self.locallyOwned()):
+            self.db.setAes(dgkey, couple)
 
         if esr := self.db.esrs.get(keys=dgkeys):  # preexisting esr
             if local and not esr.local:  # local overwrites prexisting remote

@@ -241,6 +241,11 @@ class Anchorer(doing.DoDoer):
         self.extend([publisher])
         for msg in hab.db.cloneDelegation(hab.kever):
             publisher.msgs.append(dict(pre=hab.pre, msg=bytes(msg)))
+        # After delegation approval we have setAes locally; send delegate's own event(s)
+        # with the seal so witnesses can store it (clonePreIter uses cloneEvtMsg which
+        # includes SealSourceCouples when getAes is set).
+        for msg in hab.db.clonePreIter(pre=hab.pre, fn=0):
+            publisher.msgs.append(dict(pre=hab.pre, msg=bytes(msg)))
 
 
 def loadHandlers(hby, exc, notifier):
