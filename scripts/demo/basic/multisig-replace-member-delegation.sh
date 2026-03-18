@@ -8,8 +8,6 @@ set -e
 # The multisig group after rotation:
 #   (member_2, member_3, member_4) with signature threshold 2
 
-source "$(dirname "$0")/script-utils.sh"
-
 suffix=$(head /dev/urandom | tr -dc a-z0-9 | head -c4)
 root="root_${suffix}"
 delegator="delegator_${suffix}"
@@ -42,8 +40,7 @@ cat << EOF > "$delegator_config_json"
 {
     "dt": "2026-03-10T00:00:00.000000+00:00",
     "iurls": [
-        "$delegator_witness_url",
-        "$group_witness_url"
+        "$delegator_witness_url"
     ]
 }
 EOF
@@ -52,8 +49,7 @@ cat << EOF > "$root_config_json"
 {
     "dt": "2026-03-10T00:00:00.000000+00:00",
     "iurls": [
-        "$delegator_witness_url",
-        "$group_witness_url"
+        "$delegator_witness_url"
     ]
 }
 EOF
@@ -147,20 +143,19 @@ member_4_aid=$(kli aid --name "$member_4" --alias member)
 
 kli oobi resolve --name "$member_1" --oobi-alias member_2 --oobi "${member_2_oobi}"
 kli oobi resolve --name "$member_1" --oobi-alias member_3 --oobi "${member_3_oobi}"
-kli oobi resolve --name "$member_1" --oobi-alias member_4 --oobi "${member_4_oobi}"
 kli oobi resolve --name "$member_1" --oobi-alias delegator --oobi "${delegator_oobi}"
 
 kli oobi resolve --name "$member_2" --oobi-alias member_1 --oobi "${member_1_oobi}"
 kli oobi resolve --name "$member_2" --oobi-alias member_3 --oobi "${member_3_oobi}"
-kli oobi resolve --name "$member_2" --oobi-alias member_4 --oobi "${member_4_oobi}"
 kli oobi resolve --name "$member_2" --oobi-alias delegator --oobi "${delegator_oobi}"
 
 kli oobi resolve --name "$member_3" --oobi-alias member_1 --oobi "${member_1_oobi}"
 kli oobi resolve --name "$member_3" --oobi-alias member_2 --oobi "${member_2_oobi}"
-kli oobi resolve --name "$member_3" --oobi-alias member_4 --oobi "${member_4_oobi}"
 kli oobi resolve --name "$member_3" --oobi-alias delegator --oobi "${delegator_oobi}"
 
-kli oobi resolve --name "$member_4" --oobi-alias delegator --oobi "${delegator_oobi}"
+# Delegator needs to resolve member_1 and member_2 OOBI to send delegation approval to them
+kli oobi resolve --name "$delegator" --oobi-alias member_1 --oobi "${member_1_oobi}"
+kli oobi resolve --name "$delegator" --oobi-alias member_2 --oobi "${member_2_oobi}"
 
 group_json=$(mktemp)
 cat << EOF > "$group_json"
@@ -183,22 +178,29 @@ kli delegate confirm --name "$delegator" --alias delegator --interact -Y &
 PID_LIST+=" $!"
 wait $PID_LIST
 
-kli multisig join --name "$member_3" --group group --auto
-
 group_oobi=$(kli oobi generate --name "$member_1" --alias group --role witness | tail -n 1)
+group_aid=$(kli aid --name "$member_1" --alias group)
 
-kli status --name "$member_1" --alias group
-kli status --name "$member_2" --alias group
+
+# Member 3 joins the group
+kli oobi resolve --name "$member_3" --oobi-alias group --oobi "$group_oobi"
+kli multisig join --name "$member_3" --group group --auto
 kli status --name "$member_3" --alias group
+kli kevers --name "$member_3" --prefix "$group_aid"
 
+
+# Member 4 joins the group
 kli rotate --name "$member_2" --alias member
-kli rotate --name "$member_3" --alias member
-
-kli query --name "$member_2" --alias member --prefix "$member_1_aid"
-kli query --name "$member_2" --alias member --prefix "$member_3_aid"
-kli query --name "$member_3" --alias member --prefix "$member_1_aid"
 kli query --name "$member_3" --alias member --prefix "$member_2_aid"
 
+kli rotate --name "$member_3" --alias member
+kli query --name "$member_2" --alias member --prefix "$member_3_aid"
+
+kli oobi resolve --name "$member_1" --oobi-alias member_4 --oobi "$member_4_oobi"
+kli oobi resolve --name "$member_2" --oobi-alias member_4 --oobi "$member_4_oobi"
+kli oobi resolve --name "$member_3" --oobi-alias member_4 --oobi "$member_4_oobi"
+
+kli oobi resolve --name "$member_4" --oobi-alias delegator --oobi "$delegator_oobi"
 kli oobi resolve --name "$member_4" --oobi-alias member_1 --oobi "$member_1_oobi"
 kli oobi resolve --name "$member_4" --oobi-alias member_2 --oobi "$member_2_oobi"
 kli oobi resolve --name "$member_4" --oobi-alias member_3 --oobi "$member_3_oobi"
@@ -209,19 +211,23 @@ kli multisig rotate --name "$member_3" --alias group --smids "$member_2_aid" --s
 PID_LIST+=" $!"
 kli delegate confirm --name "$delegator" --alias delegator --interact -Y &
 PID_LIST+=" $!"
-echo "Waiting for multisig rotate to complete"
+echo "Waiting for multisig rotate to complete..."
 wait $PID_LIST
 
-kli status --name "$member_1" --alias group
-kli status --name "$member_2" --alias group
+# kli status --name "$member_1" --alias group
+# kli status --name "$member_2" --alias group
 
-kli oobi resolve --name "$member_4" --oobi-alias group --oobi "$group_oobi"
+echo kli oobi resolve --name "$member_4" --oobi-alias group --oobi "$group_oobi"
+echo kli multisig join --name "$member_4" --group group --auto
 
-kli multisig join --name "$member_4" --group group --auto
+# # kli local watch --name "$member_1"
 
-kli local watch --name "$member_1"
+# # kli status --name "$member_1" --alias group
+# # kli status --name "$member_2" --alias group
+# # kli status --name "$member_3" --alias group
+# # kli status --name "$member_4" --alias group
 
-kli status --name "$member_1" --alias group
-kli status --name "$member_2" --alias group
-kli status --name "$member_3" --alias group
-kli status --name "$member_4" --alias group
+# echo "kli kevers --name $member_1 --prefix $group_aid"
+# echo "kli kevers --name $member_2 --prefix $group_aid"
+# echo "kli kevers --name $member_3 --prefix $group_aid"
+# echo "kli kevers --name $member_4 --prefix $group_aid"
